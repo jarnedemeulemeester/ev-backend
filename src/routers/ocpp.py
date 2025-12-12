@@ -3,6 +3,7 @@ from sqlmodel import Session
 
 from ..db import get_db
 from ..ocpp.charge_point import ChargePoint
+from ..utils.authenticate_websocket import authenticate_websocket
 from ..utils.websocket_interface import WebSocketInterface
 
 ocpp_router = APIRouter(tags=["ocpp"])
@@ -10,8 +11,14 @@ ocpp_router = APIRouter(tags=["ocpp"])
 
 @ocpp_router.websocket("/ocpp/{charge_point_id}")
 async def ocpp(
-    websocket: WebSocket, charge_point_id: str, session: Session = Depends(get_db)
+    websocket: WebSocket,
+    charge_point_id: str,
+    session: Session = Depends(get_db),
 ):
+    username = await authenticate_websocket(websocket, session)
+    if not username:
+        return
+
     await websocket.accept(subprotocol="ocpp2.0.1")
 
     interface = WebSocketInterface(websocket)
