@@ -3,11 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config.fastapi import FastApiConfig
 from .routers.health import health_router
+from .routers.ocpp import ocpp_router
 
 fastapi_config = FastApiConfig()
 
 app = FastAPI(
-    title="Race API",
+    title="EV",
 )
 
 app.add_middleware(
@@ -19,3 +20,4 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
+app.include_router(ocpp_router)
