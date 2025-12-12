@@ -23,13 +23,35 @@ from ocpp.v201.enums import (
     TransactionEventEnumType,
     TriggerReasonEnumType,
 )
+from sqlmodel import Session, select
+
+from ..models.user import User
+from ..utils.websocket_interface import WebSocketInterface
 
 
 class ChargePoint(cp):
+    def __init__(self, id: str, connection: WebSocketInterface, session: Session):
+        super().__init__(id, connection)
+
+        self._session = session
+
     @on(Action.authorize)
-    def on_authorize(self, id_token: dict, **kwargs):
+    async def on_authorize(self, id_token: dict, **kwargs):
         id_token: IdTokenType = IdTokenType(**id_token)
         print(f"Authorization request for id_token: {id_token}")
+        stmt = select(User).where(User.id_token == id_token.id_token)
+        user = self._session.exec(stmt).first()
+        if user is None:
+            print("Authorization failed: Unknown id_token")
+            return call_result.Authorize(
+                id_token_info=IdTokenInfoType(
+                    status=AuthorizationStatusEnumType.invalid,
+                    personal_message=MessageContentType(
+                        format=MessageFormatEnumType.utf8,
+                        content="Authorization failed. Unknown id_token.",
+                    ),
+                )
+            )
         return call_result.Authorize(
             id_token_info=IdTokenInfoType(
                 status=AuthorizationStatusEnumType.accepted,
@@ -89,6 +111,16 @@ class ChargePoint(cp):
             f"Report Notification received at {generated_at} with report data: {report_data}"
         )
         return call_result.NotifyReport()
+
+    @on(Action.security_event_notification)
+    def on_security_event_notification(
+        self, timestamp: str, type: str, tech_info: str | None = None
+    ):
+        timestamp: datetime = datetime.fromisoformat(timestamp)
+        print(
+            f"Security Event Notification received at {timestamp} with type: {type} and technical info: {tech_info}"
+        )
+        return call_result.SecurityEventNotification()
 
     @on(Action.status_notification)
     def on_status_notification(

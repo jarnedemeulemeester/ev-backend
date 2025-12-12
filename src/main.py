@@ -1,15 +1,23 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config.fastapi import FastApiConfig
+from .db import db
 from .routers.health import health_router
 from .routers.ocpp import ocpp_router
 
 fastapi_config = FastApiConfig()
 
-app = FastAPI(
-    title="EV",
-)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    db.create_db_and_tables()
+    yield
+
+
+app = FastAPI(title="EV", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
